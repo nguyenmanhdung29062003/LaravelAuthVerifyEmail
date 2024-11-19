@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -19,9 +20,22 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/signin',[UserController::class,'signIn']);
+Route::post('/signin', [UserController::class, 'signIn']);
 
-Route::get('/login',[UserController::class,'logIn']);
+Route::get('/login', [UserController::class, 'logIn']);
 
 //test auth TOKEN
-Route::get('/getAll',[UserController::class,'getAll'])->middleware('auth:sanctum');
+//->middleware(['auth', 'verified']);
+Route::get('/getAll', [UserController::class, 'getAll'])->middleware('auth:sanctum');
+
+//Verify
+Route::prefix('auth')->group(function () {
+    Route::post('/register', [UserController::class, 'register']);
+    Route::post('/login', [UserController::class, 'login']);
+    Route::get('/email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])->name('verification.verify');
+    Route::post('/resend-verification', [UserController::class, 'resendVerificationEmail']);
+});
+
+Route::post('/sendEmail', [UserController::class, 'sendEmail']);
+
+//->middleware(['signed'])

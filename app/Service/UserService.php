@@ -7,6 +7,8 @@ namespace App\Service;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Exception;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -22,24 +24,26 @@ class UserService
         $this->model = $user;
     }
 
-    //hàm thêm product
+    //register
     public function create($params)
     {
-        #sau khi có dữ liệu, tiến hành xử lý logic
-        #create() trong model là 1 hàm có sẵn trong Laravel
-        #dùng để thêm mới , nó giống save() của repository trong Spring
         try {
-            Log::info('Params:', $params);
-            $product = $this->model->create($params);
-            #params là mảng gồm key:value, đại  diện cho cột và giá trị của nó trong DB
-            #để lấy giá trj hoặc set giá tri: $params['tên cột']=...;
+            //insert vô db trc ,tk chưa đc verify
+            $user = $this->model->create($params);
         } catch (Exception $exception) {
             Log::error($exception);
             return false;
         }
         #hoặc viết kiểu truy vấn
         # DB::table('tên bảng')->insert('câu lệnh SQL')
-        return $product;
+
+        // Gửi email xác thực
+        //event(new Registered($user));
+        $user->sendEmailVerificationNotification();
+
+        return [
+            'message' => 'Register Successful. Please check your email to verify.'
+        ];
     }
 
     //ham update
@@ -61,31 +65,125 @@ class UserService
     {
         //check email first
         $user = $this->model->where('email', $params['email'])->first();
-        
+
 
         //check hash password
         $checkPass = Hash::check($params['password'], $user->password);
 
         if (!$checkPass) {
             return [
-
                 'message' => 'Email or Password is incorrect',
                 'code' => '404'
-
             ];
         }
 
-        return [
-            'message'=>'Login successful',
-            'code'=>'200 OK',
+        // Kiểm tra email đã được xác thực
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email has not verified yet'
+            ], 403);
+        }
+
+        return response()->json([
+            'message' => 'Login successful',
+            'code' => '200 OK',
             //can create TOKEN if you want
-            'access_token'=>$user->createToken('user')->plainTextToken
+            'access_token' => $user->createToken('user')->plainTextToken
+        ],200);
+    }
+
+    //verifyEmail
+    public function verifyEmail($id, $hash)
+    {
+        //check email first
+        $user = $this->model->findOrFail($id);
+
+        // Kiểm tra hash verification URL hợp lệ
+        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            return response()->json([
+                'message' => 'URL xác thực không hợp lệ'
+            ], 400);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email has verified already'
+            ], 400);
+        }
+
+        // Thực hiện xác thực email
+        if ($user->markEmailAsVerified()) {
+            return response()->json([
+                'message' => 'Verify email successful'
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Verify email unsuccess'
+        ], 400);
+    }
+
+    //resendVerificationEmail
+    public function resendVerificationEmail($params)
+    {
+        //check email first
+        $user = $this->model->where('email', $params['email'])->first();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Email đã được xác thực trước đó'
+            ], 400);
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json([
+            'message' => 'Email xác thực đã được gửi lại'
+        ], 200);
+    }
+
+    //test auth TOKEN
+    public function getList()
+    {
+        return $this->model->orderBy('id', 'desc')->get();
+    }
+
+    // Gửi email xác thực
+    public function sendVerificationEmail($params)
+    {
+        $user = $this->model->where('email', $params['email'])->first();
+
+        // if ($user->hasVerifiedEmail) {
+        //     return response()->json([
+        //         'message' => 'Email đã được xác thực'
+        //     ],200);
+        // }
+
+        $user->sendEmailVerificationNotification();
+
+        return [
+            'message' => 'Link had been send'
         ];
     }
 
+    // Verify email
+    public function verify($params)
+    {
+        $user = $this->model->where('email', $params['email'])->first();
 
-    //test auth TOKEN
-    public function getList(){
-        return $this->model->orderBy('id','desc')->get();
+
+        // Kiểm tra email chưa được xác thực
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email is not verified.'], 403);
+        }
+
+        //Đánh dấu email đã xác thực
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        return response()->json([
+            'message' => 'Email đã được xác thực thành công'
+        ]);
     }
 }

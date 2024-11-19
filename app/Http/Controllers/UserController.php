@@ -8,6 +8,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Service\UserService;
+use Illuminate\Auth\Events\Validated;
 
 class UserController extends Controller
 {
@@ -21,8 +22,8 @@ class UserController extends Controller
         $this->service = $userService;
     }
 
-    //signIn
-    public function signIn(SignInRequest $signInRequest)
+    //register
+    public function register(SignInRequest $signInRequest)
     {
         //validation
         //createRequest rex tự lấy dữ liệu trên request và validate sau đó truyền vào param
@@ -34,13 +35,12 @@ class UserController extends Controller
         $result = $this->service->create($params);
 
         if ($result) {
-            return new UserResource($result);
+            return response()->json($result);
         }
-
 
         return response()->json(
             [
-                'message' => 'Không thành công'
+                'message' => 'Registration is unsuccessful'
             ],
             400
         );
@@ -56,6 +56,23 @@ class UserController extends Controller
         return response()->json($result);
     }
 
+    //verifyEmail
+    public function verifyEmail($id, $hash)
+    {
+        $result = $this->service->verifyEmail($id, $hash);
+
+        return response()->json($result);
+    }
+
+    //resendVerificationEmail
+    public function resendVerificationEmail(LoginRequest $logInRequest)
+    {
+        $params = $logInRequest->validated();
+
+        $result = $this->service->resendVerificationEmail($params);
+
+        return response()->json($result);
+    }
 
     //test auth TOKEN
     public function getAll()
@@ -68,7 +85,7 @@ class UserController extends Controller
                 'message' => 'Data retrieved successfully',
                 'data' => $result,
                 //show lấy thông tin user hiện tại qua TOKEN
-                'user_moment'=> auth()->user()
+                'user_moment' => auth()->user()
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -78,4 +95,5 @@ class UserController extends Controller
             ], 500);
         }
     }
+
 }
