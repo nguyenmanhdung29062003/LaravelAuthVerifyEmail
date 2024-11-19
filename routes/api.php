@@ -20,22 +20,24 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/signin', [UserController::class, 'signIn']);
-
-Route::get('/login', [UserController::class, 'logIn']);
-
 //test auth TOKEN
 //->middleware(['auth', 'verified']);
 Route::get('/getAll', [UserController::class, 'getAll'])->middleware('auth:sanctum');
 
-//Verify
+//Auth Verify EmailEmail
 Route::prefix('auth')->group(function () {
     Route::post('/register', [UserController::class, 'register']);
     Route::post('/login', [UserController::class, 'login']);
-    Route::get('/email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])->name('verification.verify');
+    Route::get('/email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])->middleware(['signed'])->name('verification.verify');
     Route::post('/resend-verification', [UserController::class, 'resendVerificationEmail']);
 });
 
-Route::post('/sendEmail', [UserController::class, 'sendEmail']);
+//Forgot pass
+Route::post('forgot-password', [UserController::class, 'forgotPassword']);
 
-//->middleware(['signed'])
+Route::get('show-form',function(){
+    return view('resetPass');
+})->name('password.reset');
+
+Route::post('reset-password', [UserController::class, 'resetPassword'])->name('password.update');
+

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Api\User\SignInRequest;
+use App\Http\Requests\ForgetPassRequest;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\ResetPassRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -96,4 +98,22 @@ class UserController extends Controller
         }
     }
 
+    //forgotPassword
+    public function forgotPassword(ForgetPassRequest $forgetPassRequest)
+    {
+        $params = $forgetPassRequest->validated();
+
+        $result = $this->service->forgotPass($params);
+
+        return $result;
+    }
+
+    //resetPassword
+    public function resetPassword(ResetPassRequest $resetPassRequest){
+        $params = $resetPassRequest->validated();
+
+        $result = $this->service->resetPass($params);
+
+        return response()->json($result);
+    }
 }

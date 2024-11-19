@@ -4,11 +4,13 @@ namespace App\Service;
 
 //thực hiện các CRUD , gọi MODEL
 
+use App\Models\PasswordReset;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Exception;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -17,11 +19,13 @@ class UserService
 {
     //khai bao model
     protected $model;
+    protected $modalPass;
 
     //tạo constructor, khởi tạo
-    public function __construct(User $user)
+    public function __construct(User $user, PasswordReset $passwordReset)
     {
         $this->model = $user;
+        $this->modalPass = $passwordReset;
     }
 
     //register
@@ -89,7 +93,7 @@ class UserService
             'code' => '200 OK',
             //can create TOKEN if you want
             'access_token' => $user->createToken('user')->plainTextToken
-        ],200);
+        ], 200);
     }
 
     //verifyEmail
@@ -148,42 +152,71 @@ class UserService
         return $this->model->orderBy('id', 'desc')->get();
     }
 
-    // Gửi email xác thực
-    public function sendVerificationEmail($params)
+
+    //send email forgot pass
+    public function forgotPass($params)
     {
-        $user = $this->model->where('email', $params['email'])->first();
+        try {
+            //check email first
+            $user = $this->model->where('email', $params['email'])->first();
 
-        // if ($user->hasVerifiedEmail) {
-        //     return response()->json([
-        //         'message' => 'Email đã được xác thực'
-        //     ],200);
-        // }
+            // Tạo token mới
+            $token = $this->modalPass->createToken($params['email']);
 
-        $user->sendEmailVerificationNotification();
-
-        return [
-            'message' => 'Link had been send'
-        ];
-    }
-
-    // Verify email
-    public function verify($params)
-    {
-        $user = $this->model->where('email', $params['email'])->first();
-
-
-        // Kiểm tra email chưa được xác thực
-        if (!$user->hasVerifiedEmail()) {
-            return response()->json(['message' => 'Email is not verified.'], 403);
-        }
-
-        //Đánh dấu email đã xác thực
-        if ($user->markEmailAsVerified()) {
-            event(new Verified($user));
+            // Gửi email
+            $user->notify(new ResetPassword($token));
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to send reset link',
+                'error'=>$e->getMessage()
+            ], 400);
         }
 
         return response()->json([
-            'message' => 'Email đã được xác thực thành công'
-        ]);
+            'status' => 'success',
+            'message' => 'Reset password link sent to your email'
+        ], 200);
+    }
+
+
+    //reset Pass
+    public function resetPass($params)
+    {
+        try {
+            // Kiểm tra token hợp lệ
+            $reset = $this->modalPass->findValidToken(
+                $params['token'],
+                $params['email']
+            );
+
+            if (!$reset) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid token or expired'
+                ], 400);
+            }
+
+            // Cập nhật mật khẩu
+            $user = $this->model->where('email', $params['email'])->first();
+
+            $user->password = $params['password'];
+
+            $user->save();
+
+            // Xóa token đã sử dụng
+            $this->modalPass->invalidateToken($params['email']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unable to reset password',
+                'error'=>$e->getMessage()
+            ], 400);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Password reset successfully'
+        ], 200);
     }
 }
