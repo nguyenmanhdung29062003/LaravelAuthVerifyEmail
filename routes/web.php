@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GoogleAuthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,9 +15,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return response()->json([
-        'message' => 'success',
-        'data' => 'Hello World',
-        'code' => 200
-    ]);
+    return view('loginSocial');
 });
+
+Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('google-auth');
+
+Route::get('auth/google/call-back', [GoogleAuthController::class, 'callBackGoogle']);

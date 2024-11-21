@@ -8,11 +8,13 @@ use App\Models\PasswordReset;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Exception;
+use GuzzleHttp\Client;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class UserService
@@ -88,11 +90,55 @@ class UserService
             ], 403);
         }
 
+        //create TOKEN by sanctum
+        $token = $user->createToken('user')->plainTextToken;
+
+        //create TOKEN by passport
+
+        // Log::info('OAuth Request:', [
+        //     'url' => config('app.url') . '/oauth/token',
+        //     'params' => $params,
+        //     'client_id' => config('services.passport.client_id'),
+        //     'client_secret' => config('services.passport.client_secret'),
+
+        // ]);
+
+        // $http = new Client();
+
+        // try {
+        //     $response = $http->post(config('app.url') . '/oauth/token', [
+        //         'form_params' => [
+        //             'grant_type' => 'password',
+        //             'client_id' => config('services.passport.client_id'),
+        //             'client_secret' => config('services.passport.client_secret'),
+        //             'username' => $params['email'],
+        //             'password' => $params['password'],
+        //             'scope' => '',
+        //         ],
+        //     ]);
+
+        //     $token = json_decode((string) $response->getBody(), true);
+
+        //     Log::info('OAuth Response:', $token);
+        // } catch (\Exception $e) {
+        //     Log::error('Generate token fail' + $e->getMessage());
+
+        //     return response()->json([
+        //         'message' => 'Unable to generate token',
+        //         'error' => $e->getTraceAsString()
+
+        //     ], 500);
+        // }
+
+
         return response()->json([
             'message' => 'Login successful',
             'code' => '200 OK',
             //can create TOKEN if you want
-            'access_token' => $user->createToken('user')->plainTextToken
+            // 'access_token' => $token['access_token'],
+            // 'refresh_token' => $token['refresh_token'],
+            // 'expires_in' => $token['expires_in']
+            'token'=>$token
         ], 200);
     }
 
@@ -169,7 +215,7 @@ class UserService
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to send reset link',
-                'error'=>$e->getMessage()
+                'error' => $e->getMessage()
             ], 400);
         }
 
@@ -210,7 +256,7 @@ class UserService
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unable to reset password',
-                'error'=>$e->getMessage()
+                'error' => $e->getMessage()
             ], 400);
         }
 
