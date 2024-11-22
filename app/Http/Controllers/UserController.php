@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use App\Service\UserService;
 use Illuminate\Auth\Events\Validated;
+use Laravel\Passport\Token;
 
 class UserController extends Controller
 {
@@ -37,7 +38,7 @@ class UserController extends Controller
         $result = $this->service->create($params);
 
         if ($result) {
-            return response()->json($result);
+            return $result;
         }
 
         return response()->json(
@@ -55,7 +56,7 @@ class UserController extends Controller
 
         $result = $this->service->login($params);
 
-        return response()->json($result);
+        return $result;
     }
 
     //verifyEmail
@@ -63,7 +64,7 @@ class UserController extends Controller
     {
         $result = $this->service->verifyEmail($id, $hash);
 
-        return response()->json($result);
+        return $result;
     }
 
     //resendVerificationEmail
@@ -73,7 +74,7 @@ class UserController extends Controller
 
         $result = $this->service->resendVerificationEmail($params);
 
-        return response()->json($result);
+        return response()->json($result, 200);
     }
 
     //test auth TOKEN
@@ -109,11 +110,35 @@ class UserController extends Controller
     }
 
     //resetPassword
-    public function resetPassword(ResetPassRequest $resetPassRequest){
+    public function resetPassword(ResetPassRequest $resetPassRequest)
+    {
         $params = $resetPassRequest->validated();
 
         $result = $this->service->resetPass($params);
 
-        return response()->json($result);
+        return $result;
+    }
+
+    //logOut
+    public function logout(Request $request)
+    {
+        try {
+
+            // Lấy user ID từ token hiện tại
+            $userId = $request->user()->id;
+
+            // Thu hồi tất cả access tokens của user
+            Token::where('user_id', $userId)->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Logout successful'
+            ],200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Logout Fail: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

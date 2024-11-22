@@ -2,12 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Passport\RefreshToken;
+use Laravel\Passport\TokenRepository;
 
 class RefreshTokenMiddleware
 {
@@ -20,47 +22,39 @@ class RefreshTokenMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        //get access TOKEN from header
-        $accessToken = $request->bearerToken();
+        // Lấy Authorization header
+        $authorizationHeader = $request->header('Authorization');
 
-        //check if accessToken is out of date, and it is a TOKEN
-        if ($accessToken && $this->isTokenExpired($accessToken)) {
-            $newToken = $this->refreshToken($accessToken);
+        if ($authorizationHeader && str_starts_with($authorizationHeader, 'Bearer ')) {
+            // Trích xuất token từ header
+            $token = trim(str_replace('Bearer', '', $authorizationHeader));
 
-            if($newToken){
-                $request->headers->set('Authorization', 'Bearer ' . $newToken['access_token']);
+            // Lấy thông tin token từ database
+            $tokenModel = app(TokenRepository::class)->find($token);
+
+            if ($tokenModel) {
+                // Kiểm tra token có gần hết hạn 
+                $expiresAt = Carbon::parse($tokenModel->expires_at);
+                if (Carbon::now()->diffInMinutes($expiresAt) <= 60) {
+                    // Revoke token cũ
+                    $tokenModel->revoke();
+
+                    // Lấy người dùng từ token
+                    $user = $tokenModel->user;
+
+                    // Tạo token mới
+                    $newToken = $user->createToken('Personal Access Token', $tokenModel->scopes);
+                    $newAccessToken = $newToken->accessToken;
+
+                    // Cập nhật token mới trong header request
+                    $request->headers->set('Authorization', 'Bearer ' . $newAccessToken);
+
+                    // Đính kèm token mới vào response (nếu cần)
+                    $request->attributes->set('new_access_token', $newAccessToken);
+                }
             }
         }
+
         return $next($request);
-    }
-
-    protected function isTokenExpired($accessToken)
-    {
-        return $accessToken->expires_at < now();
-    }
-
-    //function get new Access TOKEN from Refresh TOKEN 
-    protected function refreshToken($accessToken)
-    {
-        $refreshToken = RefreshToken::where('access_token_id', $accessToken->id)->where('revoked', false)->first();
-
-        try {
-            $response = Http::asForm()->post(config('app.url') . '/oauth/token', [
-                'grant_type' => 'refresh_token',
-                'refresh_token' => $refreshToken->id,
-                'client_id' => config('services.passport.client_id'),
-                'client_secret' => config('services.passport.client_secret'),
-
-            ]);
-
-            if($response->successful())
-            {
-                return $response->json();
-            }
-        } catch (\Exception $e) {
-            Log::error('Refresh token fail' + $e->getMessage());
-        }
-
-        return null;
     }
 }

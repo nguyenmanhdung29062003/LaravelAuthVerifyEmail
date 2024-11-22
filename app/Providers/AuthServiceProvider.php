@@ -27,13 +27,16 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         //
+        // Thêm dòng này để đăng ký scope
+        Passport::tokensCan([
+            'role:user' => 'User role access',
+            'role:admin'=>'Admin role access'
+        ]);
 
         Passport::routes();
         // Thiết lập thời gian hết hạn token
         Passport::tokensExpireIn(now()->addMinutes(60));
         Passport::refreshTokensExpireIn(now()->addDays(7));
-        Passport::personalAccessTokensExpireIn(now()->addDays(7));
-
-        Passport::loadKeysFrom(__DIR__.'/../secrets/oauth');
+        Passport::personalAccessTokensExpireIn(now()->addMinutes(15));
     }
 }

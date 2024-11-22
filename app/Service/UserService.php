@@ -47,9 +47,9 @@ class UserService
         //event(new Registered($user));
         $user->sendEmailVerificationNotification();
 
-        return [
+        return response()->json([
             'message' => 'Register Successful. Please check your email to verify.'
-        ];
+        ],200);
     }
 
     //ham update
@@ -77,69 +77,35 @@ class UserService
         $checkPass = Hash::check($params['password'], $user->password);
 
         if (!$checkPass) {
-            return [
+            return response()->json( [
                 'message' => 'Email or Password is incorrect',
                 'code' => '404'
-            ];
+            ],404);
         }
 
         // Kiểm tra email đã được xác thực
         if (!$user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Email has not verified yet'
-            ], 403);
+            ],404);
         }
 
         //create TOKEN by sanctum
-        $token = $user->createToken('user')->plainTextToken;
+        //$token = $user->createToken('user')->plainTextToken;
 
         //create TOKEN by passport
+        $tokenResult = $user->createToken('Personal Access Token', ['role:user']);
+        $accessToken = $tokenResult->accessToken;
+        $tokenExpiry = $tokenResult->token->expires_at;
 
-        // Log::info('OAuth Request:', [
-        //     'url' => config('app.url') . '/oauth/token',
-        //     'params' => $params,
-        //     'client_id' => config('services.passport.client_id'),
-        //     'client_secret' => config('services.passport.client_secret'),
-
-        // ]);
-
-        // $http = new Client();
-
-        // try {
-        //     $response = $http->post(config('app.url') . '/oauth/token', [
-        //         'form_params' => [
-        //             'grant_type' => 'password',
-        //             'client_id' => config('services.passport.client_id'),
-        //             'client_secret' => config('services.passport.client_secret'),
-        //             'username' => $params['email'],
-        //             'password' => $params['password'],
-        //             'scope' => '',
-        //         ],
-        //     ]);
-
-        //     $token = json_decode((string) $response->getBody(), true);
-
-        //     Log::info('OAuth Response:', $token);
-        // } catch (\Exception $e) {
-        //     Log::error('Generate token fail' + $e->getMessage());
-
-        //     return response()->json([
-        //         'message' => 'Unable to generate token',
-        //         'error' => $e->getTraceAsString()
-
-        //     ], 500);
-        // }
 
 
         return response()->json([
             'message' => 'Login successful',
-            'code' => '200 OK',
             //can create TOKEN if you want
-            // 'access_token' => $token['access_token'],
-            // 'refresh_token' => $token['refresh_token'],
-            // 'expires_in' => $token['expires_in']
-            'token'=>$token
-        ], 200);
+            'access_token' => $accessToken,
+            'expires_in' => $tokenExpiry
+        ],200);
     }
 
     //verifyEmail
@@ -170,7 +136,7 @@ class UserService
 
         return response()->json([
             'message' => 'Verify email unsuccess'
-        ], 400);
+        ],400);
     }
 
     //resendVerificationEmail
@@ -189,7 +155,7 @@ class UserService
 
         return response()->json([
             'message' => 'Email xác thực đã được gửi lại'
-        ], 200);
+        ],200);
     }
 
     //test auth TOKEN

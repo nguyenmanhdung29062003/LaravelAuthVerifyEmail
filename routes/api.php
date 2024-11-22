@@ -21,9 +21,10 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-//test auth TOKEN
-//->middleware(['auth', 'verified']);
-Route::get('/getAll', [UserController::class, 'getAll'])->middleware(['auth:api', 'refresh_token']);
+
+//check role
+//->middleware(['role:admin'])
+Route::get('/getAll', [UserController::class, 'getAll'])->middleware(['auth:api', 'refresh.token', 'role:user']);
 
 //Auth Verify Email
 Route::prefix('auth')->group(function () {
@@ -32,6 +33,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [UserController::class, 'login']);
     Route::get('/email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])->name('verification.verify');
     Route::post('/resend-verification', [UserController::class, 'resendVerificationEmail']);
+
+
+    //Logout
+    Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:api');
 });
 
 

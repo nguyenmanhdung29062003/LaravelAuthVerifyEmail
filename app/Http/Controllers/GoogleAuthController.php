@@ -35,26 +35,33 @@ class GoogleAuthController extends Controller
                     'google_id' => $google_user->getId(),
                 ]);
 
-                // Tạo token cho người dùng 
-                $token = $new_user->createToken('Google Login')->plainTextToken;
+                //create TOKEN by passport
+                $tokenResult = $new_user->createToken('Personal Access Token', ['role:user']);
+                $accessToken = $tokenResult->accessToken;
+                $tokenExpiry = $tokenResult->token->expires_at;
 
                 //tạo tk và login và đi đến trang home
                 // Trả về response với token
                 return response()->json([
-                    'user' => $user,
-                    'access_token' => $token,
+                    'user' => $new_user,
+                    'access_token' => $accessToken,
+                    'expires_in' => $tokenExpiry,
                     'token_type' => 'Bearer',
                     // Có thể thêm redirect URL cho ứng dụng frontend
                 ]);
             } else {
                 // Nếu người dùng đã tồn tại
                 // Tạo token cho người dùng 
-                $token = $user->createToken('Google Login')->plainTextToken;
+                //create TOKEN by passport
+                $tokenResult = $user->createToken('Personal Access Token', ['role:user']);
+                $accessToken = $tokenResult->accessToken;
+                $tokenExpiry = $tokenResult->token->expires_at;
 
                 // Trả về response với token
                 return response()->json([
                     'user' => $user,
-                    'access_token' => $token,
+                    'access_token' => $accessToken,
+                    'expires_in' => $tokenExpiry,
                     'token_type' => 'Bearer',
                     // Có thể thêm redirect URL cho ứng dụng frontend
                 ]);
